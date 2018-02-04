@@ -9,8 +9,8 @@ import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 @PropertySource(value = "classpath:conf/application.properties", ignoreResourceNotFound = true)
 public class PropertiesConfig {
 
-    @Bean
-    public PropertySourcesPlaceholderConfigurer propertyConfig() {
-        return new PropertySourcesPlaceholderConfigurer();
-    }
+	@Bean
+	public PropertySourcesPlaceholderConfigurer propertyConfig() {
+		return new PropertySourcesPlaceholderConfigurer();
+	}
 }

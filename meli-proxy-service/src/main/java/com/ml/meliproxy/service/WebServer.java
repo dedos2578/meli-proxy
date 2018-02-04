@@ -11,7 +11,8 @@ import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import com.ml.meliproxy.service.context.AppContext;
 import com.ml.meliproxy.service.context.Constants;
@@ -48,7 +49,10 @@ public class WebServer {
 		connector.setPort(port);
 		server.setConnectors(new Connector[] { connector });
 
-		server.setHandler(this.buildAppContext(proxyTo));
+		// Init spring context
+		ApplicationContext applicationContext = new AnnotationConfigApplicationContext(AppContext.class);
+
+		server.setHandler(this.buildMeliProxyServletHandler(proxyTo, applicationContext));
 		server.setStopAtShutdown(true);
 		return server;
 	}
@@ -58,14 +62,12 @@ public class WebServer {
 		this.server.join();
 	}
 
-	private Handler buildAppContext(String proxyTo) {
-		AnnotationConfigWebApplicationContext applicationContext = new AnnotationConfigWebApplicationContext();
-		applicationContext.register(AppContext.class);
-
+	private Handler buildMeliProxyServletHandler(String proxyTo, ApplicationContext applicationContext) {
 		ServletContextHandler handler = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
 		handler.setContextPath(Constants.DEFAULT_CONTEXT_PATH);
 
-		ServletHolder servletHolder = new ServletHolder(new MeliProxyServlet());
+		MeliProxyServlet meliProxyServlet = applicationContext.getBean(MeliProxyServlet.class);
+		ServletHolder servletHolder = new ServletHolder(meliProxyServlet);
 		servletHolder.setName("proxyServlet");
 		servletHolder.setInitOrder(1);
 		servletHolder.setInitParameter("proxyTo", proxyTo);
@@ -73,8 +75,6 @@ public class WebServer {
 
 		GzipHandler gzipHandler = new GzipHandler();
 		gzipHandler.setHandler(handler);
-
-		applicationContext.close();
 		return gzipHandler;
 	}
 }

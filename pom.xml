@@ -221,6 +221,27 @@
 				<version>${springfox.version}</version>
 			</dependency>
 
+			<!-- Couchbase -->
+			<dependency>
+				<groupId>com.couchbase.client</groupId>
+				<artifactId>java-client</artifactId>
+				<version>2.5.4</version>
+			</dependency>
+
+			<!-- Apache Commons -->
+			<dependency>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-lang3</artifactId>
+				<version>3.7</version>
+			</dependency>
+
+			<!-- Hazelcast -->
+			<dependency>
+				<groupId>com.hazelcast</groupId>
+				<artifactId>hazelcast</artifactId>
+				<version>3.9.2</version>
+			</dependency>
+
 			<!-- Logging configuration -->
 			<dependency>
 				<groupId>org.slf4j</groupId>

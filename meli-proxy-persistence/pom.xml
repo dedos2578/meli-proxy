@@ -42,6 +42,18 @@
 			<artifactId>spring-core</artifactId>
 		</dependency>
 
+		<!-- Apache Commons -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+		</dependency>
+
+		<!-- Couchbase -->
+		<dependency>
+			<groupId>com.couchbase.client</groupId>
+			<artifactId>java-client</artifactId>
+		</dependency>
+
 		<!-- Logging configuration -->
 		<dependency>
 			<groupId>org.slf4j</groupId>

@@ -9,5 +9,5 @@ import com.ml.meliproxy.persistence.context.PersistenceContext;
 @Configuration
 @ComponentScan(basePackages = Constants.BASE_PACKAGE)
 @Import(PersistenceContext.class)
-public class AppContext  {
+public class AppContext {
 }
