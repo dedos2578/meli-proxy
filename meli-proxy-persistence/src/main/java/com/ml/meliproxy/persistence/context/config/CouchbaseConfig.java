@@ -17,13 +17,13 @@ public class CouchbaseConfig {
 	@Value("#{'${couchbase.hosts:127.0.0.1}'.split(',')}")
 	private List<String> hosts;
 
-	@Value("${couchbase.data-bucket:meli-proxy}")
+	@Value("${couchbase.data-bucket:meli_proxy}")
 	public String bucketName;
 
-	@Value("${couchbase.counters-bucket:meli-proxy-counters}")
+	@Value("${couchbase.counters-bucket:meli_proxy_counters}")
 	public String countersBucketName;
 
-	@Value("${couchbase.username:meli-proxy}")
+	@Value("${couchbase.username:admin}")
 	public String username;
 
 	@Value("${couchbase.password:password}")

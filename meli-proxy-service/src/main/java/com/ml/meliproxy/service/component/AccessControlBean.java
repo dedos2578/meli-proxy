@@ -4,6 +4,9 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
 
@@ -14,6 +17,8 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.ITopic;
 import com.hazelcast.core.Message;
 import com.hazelcast.core.MessageListener;
+import com.ml.meliproxy.persistence.model.BlockedDoc;
+import com.ml.meliproxy.persistence.repository.BlockedRepository;
 import com.ml.meliproxy.service.component.AccessControlBean.LockEvent;
 import com.ml.meliproxy.service.util.KeyUtil;
 
@@ -25,6 +30,9 @@ public class AccessControlBean implements MessageListener<LockEvent> {
 	@Autowired
 	private HazelcastInstance hazelcastInstance;
 
+	@Autowired
+	private BlockedRepository blockedRepository;
+
 	private ITopic<LockEvent> topic;
 
 	private Map<String, Date> blockedByIp;
@@ -33,9 +41,10 @@ public class AccessControlBean implements MessageListener<LockEvent> {
 
 	@PostConstruct
 	private void init() {
-		this.blockedByIp = new HashMap<>();
-		this.blockedByPath = new HashMap<>();
-		this.blockedByIpAndPath = new HashMap<>();
+		BlockedDoc blockedDoc = blockedRepository.get();
+		this.blockedByIp = toBlockedMap(blockedDoc.getByIp());
+		this.blockedByPath = toBlockedMap(blockedDoc.getByPath());
+		this.blockedByIpAndPath = toBlockedMap(blockedDoc.getByIpAndPath());
 
 		this.topic = this.hazelcastInstance.getTopic(TOPIC_NAME);
 		this.topic.addMessageListener(this);
@@ -70,6 +79,28 @@ public class AccessControlBean implements MessageListener<LockEvent> {
 		message.setType(type);
 		message.setKey(key);
 		this.topic.publish(message);
+
+		switch (type) {
+		case IP:
+			blockedRepository.addByIp(key);
+			break;
+		case PATH:
+			blockedRepository.addByPath(key);
+			break;
+		case IP_PATH:
+			blockedRepository.addByIpAndPath(key);
+			break;
+		default:
+			throw new IllegalStateException(type.name());
+		}
+	}
+
+	private Map<String, Date> toBlockedMap(Set<String> set) {
+		if (set == null) {
+			return new HashMap<>();
+		}
+		Date now = new Date();
+		return set.stream().collect(Collectors.toMap(Function.identity(), v -> now));
 	}
 
 	protected enum Type {

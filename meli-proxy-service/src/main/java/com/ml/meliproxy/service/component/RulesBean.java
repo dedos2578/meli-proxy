@@ -82,7 +82,7 @@ public class RulesBean {
 
 	private void incrementAndCheckLimits(String key, Supplier<Long> limitSupplier, Type type) {
 		Long current = this.counterRepository.increment(key);
-		if (current > limitSupplier.get()) {
+		if (current >= limitSupplier.get()) {
 			this.accessControlBean.block(key, type);
 		}
 	}
