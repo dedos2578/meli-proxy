@@ -56,13 +56,13 @@ public class AccessControlBean implements MessageListener<LockEvent> {
 
 		switch (event.getType()) {
 		case IP:
-			this.blockedByIp.put(event.getKey(), new Date());
+			this.blockedByIp.putIfAbsent(event.getKey(), new Date());
 			break;
 		case PATH:
-			this.blockedByPath.put(event.getKey(), new Date());
+			this.blockedByPath.putIfAbsent(event.getKey(), new Date());
 			break;
 		case IP_PATH:
-			this.blockedByIpAndPath.put(event.getKey(), new Date());
+			this.blockedByIpAndPath.putIfAbsent(event.getKey(), new Date());
 			break;
 		default:
 			throw new IllegalStateException(event.getType().name());
@@ -70,28 +70,40 @@ public class AccessControlBean implements MessageListener<LockEvent> {
 	}
 
 	public boolean isBlocked(String ip, String path) {
-		return blockedByIp.containsKey(ip) || blockedByPath.containsKey(path)
-				|| blockedByIpAndPath.containsKey(KeyUtil.combine(ip, path));
+		return this.blockedByIp.containsKey(ip) || this.blockedByPath.containsKey(path)
+				|| this.blockedByIpAndPath.containsKey(KeyUtil.combine(ip, path));
 	}
 
-	public void block(String key, Type type) {
-		LockEvent message = new LockEvent();
-		message.setType(type);
-		message.setKey(key);
-		this.topic.publish(message);
+	public void blockByIp(String ip) {
+		if (this.blockedByIp.putIfAbsent(ip, new Date()) == null) {
+			LockEvent message = new LockEvent();
+			message.setType(Type.IP);
+			message.setKey(ip);
+			this.topic.publish(message);
 
-		switch (type) {
-		case IP:
-			blockedRepository.addByIp(key);
-			break;
-		case PATH:
-			blockedRepository.addByPath(key);
-			break;
-		case IP_PATH:
-			blockedRepository.addByIpAndPath(key);
-			break;
-		default:
-			throw new IllegalStateException(type.name());
+			this.blockedRepository.addByIp(ip);
+		}
+	}
+
+	public void blockByPath(String path) {
+		if (this.blockedByPath.putIfAbsent(path, new Date()) == null) {
+			LockEvent message = new LockEvent();
+			message.setType(Type.PATH);
+			message.setKey(path);
+			this.topic.publish(message);
+
+			this.blockedRepository.addByPath(path);
+		}
+	}
+
+	public void blockByIpAndPath(String combinedKey) {
+		if (this.blockedByIpAndPath.putIfAbsent(combinedKey, new Date()) == null) {
+			LockEvent message = new LockEvent();
+			message.setType(Type.IP_PATH);
+			message.setKey(combinedKey);
+			this.topic.publish(message);
+
+			this.blockedRepository.addByIpAndPath(combinedKey);
 		}
 	}
 

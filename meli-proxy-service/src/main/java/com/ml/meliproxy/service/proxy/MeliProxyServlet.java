@@ -51,7 +51,8 @@ public class MeliProxyServlet extends ProxyServlet.Transparent {
 		if (blocked) {
 			response.setStatus(HttpStatus.FORBIDDEN_403);
 		} else {
-			this.counterBean.incrementAndCheckLimits(ip, path);
+			this.counterBean.increment(ip, path);
+			this.counterBean.checkLimits(ip, path);
 
 			serviceStart = System.currentTimeMillis();
 			super.service(request, response);

@@ -5,7 +5,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -19,11 +20,12 @@ import org.springframework.stereotype.Component;
 import com.ml.meliproxy.persistence.model.ConfigDoc;
 import com.ml.meliproxy.persistence.repository.ConfigRepository;
 import com.ml.meliproxy.persistence.repository.CounterRepository;
-import com.ml.meliproxy.service.component.AccessControlBean.Type;
 import com.ml.meliproxy.service.util.KeyUtil;
 
 @Component
 public class RulesBean {
+	private static final long MAX_BUFFER_SIZE = 100L;
+
 	private static final Logger LOGGER = LoggerFactory.getLogger(RulesBean.class);
 
 	@Autowired
@@ -39,6 +41,9 @@ public class RulesBean {
 	private Map<String, Set<Pattern>> byIpAndPathPatterns;
 	private ConfigDoc currentConfig;
 	private Long currentDefaultLimit = Long.MAX_VALUE;
+
+	private Map<String, AtomicLong> limitBufferMap = new HashMap<>();
+	private Map<String, Long> lastCountMap = new HashMap<>();
 
 	// Load en init del proxy y Reload cada 5 minutos, en caso de nueva version
 	@Scheduled(fixedDelay = 360000, initialDelay = 0)
@@ -69,21 +74,77 @@ public class RulesBean {
 		}
 	}
 
-	private Set<Pattern> toPatterns(Map<String, Long> map) {
-		return map.keySet().stream().map(Pattern::compile).collect(Collectors.toSet());
+	public void increment(String ip, String path) {
+		getLimitBuffer(ip).incrementAndGet();
+		getLimitBuffer(path).incrementAndGet();
+		getLimitBuffer(KeyUtil.combine(ip, path)).incrementAndGet();
 	}
 
-	@Async
-	public void incrementAndCheckLimits(String ip, String path) {
-		incrementAndCheckLimits(ip, () -> limitByIp(ip), Type.IP);
-		incrementAndCheckLimits(path, () -> limitByPath(path), Type.PATH);
-		incrementAndCheckLimits(KeyUtil.combine(ip, path), () -> limitByIpAndPath(ip, path), Type.IP_PATH);
+	@Async("checkExecutor")
+	public void checkLimits(String ip, String path) {
+		incrementAndCheckLimits(ip, limitByIp(ip), accessControlBean::blockByIp);
+		incrementAndCheckLimits(path, limitByPath(path), accessControlBean::blockByPath);
+		incrementAndCheckLimits(KeyUtil.combine(ip, path), limitByIpAndPath(ip, path),
+				accessControlBean::blockByIpAndPath);
 	}
 
-	private void incrementAndCheckLimits(String key, Supplier<Long> limitSupplier, Type type) {
-		Long current = this.counterRepository.increment(key);
-		if (current >= limitSupplier.get()) {
-			this.accessControlBean.block(key, type);
+	// El buffer hace que el contador sume de a 100 y acelera en caso de estar cerca
+	// del limite. Si bien con mayor hardware es probable que el problema que estoy
+	// solucionando aqui no ocurra, es una forma controlar los counts contra la
+	// base.
+	private void incrementAndCheckLimits(String key, long limit, Consumer<String> blocker) {
+		long currentBuffer = getLimitBuffer(key).get();
+		long pessimisticCounter = getLastCount(key) + (currentBuffer * 3);
+
+		if ((currentBuffer > 0 && pessimisticCounter > limit) || currentBuffer > MAX_BUFFER_SIZE) {
+			checkAndBlockIfNecessary(key, blocker, currentBuffer, limit);
+		}
+	}
+
+	private synchronized void checkAndBlockIfNecessary(String key, Consumer<String> blocker, long currentBuffer,
+			long limit) {
+		long newCurrentBuffer = getLimitBuffer(key).get();
+		if (newCurrentBuffer >= currentBuffer) {
+			getLimitBuffer(key).addAndGet(-newCurrentBuffer);
+			long current = this.counterRepository.increment(key, newCurrentBuffer);
+			lastCountMap.put(key, current);
+			LOGGER.info("Checking... {} buffer: {} current: {}", key, newCurrentBuffer, current);
+
+			if (current >= limit) {
+				blocker.accept(key);
+			}
+		}
+	}
+
+	private Long getLastCount(String key) {
+		Long value = lastCountMap.get(key);
+		if (value != null) {
+			return value;
+		}
+
+		synchronized (this) {
+			value = lastCountMap.get(key);
+			if (value == null) {
+				value = counterRepository.get(key);
+				lastCountMap.put(key, value);
+			}
+			return value;
+		}
+	}
+
+	private AtomicLong getLimitBuffer(String key) {
+		AtomicLong value = limitBufferMap.get(key);
+		if (value != null) {
+			return value;
+		}
+
+		synchronized (this) {
+			value = limitBufferMap.get(key);
+			if (value == null) {
+				value = new AtomicLong(0L);
+				limitBufferMap.put(key, value);
+			}
+			return value;
 		}
 	}
 
@@ -115,5 +176,9 @@ public class RulesBean {
 	private Long limitByPath(Set<Pattern> patterns, Map<String, Long> byPathMap, String path) {
 		return patterns.stream().filter(pattern -> pattern.matcher(path).matches()).findAny().map(Pattern::pattern)
 				.map(byPathMap::get).orElse(this.currentDefaultLimit);
+	}
+
+	private Set<Pattern> toPatterns(Map<String, Long> map) {
+		return map.keySet().stream().map(Pattern::compile).collect(Collectors.toSet());
 	}
 }

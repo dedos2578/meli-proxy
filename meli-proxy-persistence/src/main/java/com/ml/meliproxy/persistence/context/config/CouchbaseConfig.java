@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Configuration;
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.CouchbaseCluster;
+import com.couchbase.client.java.env.CouchbaseEnvironment;
+import com.couchbase.client.java.env.DefaultCouchbaseEnvironment;
 import com.ml.meliproxy.persistence.context.PersistenceConstants;
 
 @Configuration
@@ -29,10 +31,19 @@ public class CouchbaseConfig {
 	@Value("${couchbase.password:password}")
 	public String password;
 
+	@Value("${couchbase.kv-timeout:5000}")
+	public long kvTimeout;
+
+	@Value("${couchbase.kv-endpoints:2}")
+	public int kvEndpoints;
+
 	@Bean(destroyMethod = "disconnect")
 	public Cluster couchbaseCluster() throws Exception {
-		Cluster cluster = CouchbaseCluster.create(hosts);
-		cluster.authenticate(username, password);
+		CouchbaseEnvironment environment = DefaultCouchbaseEnvironment.builder().kvTimeout(this.kvTimeout)
+				.kvEndpoints(this.kvEndpoints).build();
+
+		Cluster cluster = CouchbaseCluster.create(environment, this.hosts);
+		cluster.authenticate(this.username, this.password);
 		return cluster;
 	}
 
