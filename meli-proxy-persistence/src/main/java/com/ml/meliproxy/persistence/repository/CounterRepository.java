@@ -18,7 +18,7 @@ public class CounterRepository {
 		JsonLongDocument counter = bucket.counter(id, delta, delta);
 		return counter.content();
 	}
-	
+
 	public Long get(String id) {
 		JsonLongDocument counter = bucket.counter(id, 0, 0);
 		return counter.content();

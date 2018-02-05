@@ -15,29 +15,17 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @EnableScheduling
 public class ExecutorConfig {
 
-	@Value("${async.executor.pool.size:64}")
-	private int poolSize;
-
-	@Value("${async.executor.thread-name-prefix:check-async-}")
-	private String threadNamePrefix;
-
 	@Value("${async.executor.pool.size:32}")
 	private int reporterPoolSize;
 
 	@Value("${async.executor.thread-name-prefix:reporter-async-}")
 	private String reporterThreadNamePrefix;
-	
+
 	@Value("${async.executor.await-termination:60}")
 	private int awaitTermination;
 
 	@Bean(name = "checkExecutor", destroyMethod = "shutdown")
 	public Executor getAsyncExecutor() {
-		ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
-		taskExecutor.setThreadNamePrefix(threadNamePrefix);
-		taskExecutor.setCorePoolSize(poolSize);
-		taskExecutor.setMaxPoolSize(poolSize);
-		taskExecutor.setAwaitTerminationSeconds(awaitTermination);
-		taskExecutor.initialize();
 		return Executors.newCachedThreadPool();
 	}
 

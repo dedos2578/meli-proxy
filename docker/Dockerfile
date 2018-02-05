@@ -1,0 +1,16 @@
+FROM couchbase/server:community-5.0.1
+MAINTAINER Diego Delgado
+
+ENV SERVER_MEMORY_QUOTA 512
+ENV COUNTERS_BUCKET_MEMORY_QUOTA 100
+ENV BUCKET_MEMORY_QUOTA 412
+ENV INDEX_MEMORY_QUOTA 256
+
+ENV USERNAME "admin"
+ENV PASSWORD "password"
+
+ENV COUNTERS_BUCKET "meli_proxy_counters"
+ENV BUCKET "meli_proxy"
+
+COPY init-node.sh /init-node.sh
+ENTRYPOINT ["/init-node.sh"]	
